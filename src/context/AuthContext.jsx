@@ -8,9 +8,9 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchUserProfile = async () => {
+    const fetchUserProfile = async (email) => {
         try {
-            const response = await getCurrentUserApi();
+            const response = await getCurrentUserApi(email);
             setUser(response.data); // Stores customer id, nickName, email, role
         } catch (error) {
             console.error('Failed to fetch user context', error);
@@ -24,7 +24,9 @@ export const AuthProvider = ({ children }) => {
         const response = await loginApi(credentials);
         const { token, refreshToken } = response.data;
         await saveTokens(token, refreshToken);
-        await fetchUserProfile();
+        console.log(credentials.email);
+        console.log(credentials);
+        await fetchUserProfile(credentials);
     };
 
     const logout = async () => {

@@ -7,7 +7,7 @@ export const verifyEmailApi = (data) => client.post('/auth/verify-email', data);
 export const logoutApi = (email) => client.post('/auth/logout', email);
 
 // User Profile Endpoint
-export const getCurrentUserApi = () => client.get('/api/users/me');
+export const getCurrentUserApi = (credential) => client.post('/api/users/me', credential );
 
 // Product Endpoints
 export const getActiveProductsApi = () => client.get('/api/v1/product/activeProducts');

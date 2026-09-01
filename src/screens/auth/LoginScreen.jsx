@@ -15,9 +15,25 @@ export default function LoginScreen({ navigation }) {
         }
         try {
             setLoading(true);
-            await login({ email, password });
+
+            const response = await login({
+                email,
+                password
+            });
+
+            console.log('Success', response);
+            // If your login() returns a nested response object:
+            // console.log('Success', response?.data ?? response);
         } catch (err) {
-            Alert.alert('Login Failed', err.response?.data?.message || 'Invalid credentials');
+            console.log('Login Error Details:', err.response?.data || err.message);
+
+            const errorMessage =
+                err.response?.data?.message ||
+                err.response?.data ||
+                err.message ||
+                'Invalid credentials';
+
+            Alert.alert('Login Failed', errorMessage);
         } finally {
             setLoading(false);
         }
