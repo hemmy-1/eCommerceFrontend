@@ -8,7 +8,11 @@ export default function CartScreen() {
     const { user } = useContext(AuthContext);
     const queryClient = useQueryClient();
 
-    const { data: cart, isLoading } = useQuery({
+    // const { data: cart, isLoading, refetch, isRefetching } = useQuery({
+    //     queryKey: ['cart', user?.id],
+    //     queryFn: () => getCartApi(user?.id).then(res => res.data),
+    // });
+    const { data: cart, isLoading, refetch, isRefetching } = useQuery({
         queryKey: ['cart', user?.id],
         queryFn: async () => {
             const res = await getCartApi(user.id);
@@ -28,6 +32,7 @@ export default function CartScreen() {
 
     if (isLoading) return <ActivityIndicator style={styles.center} size="large" />;
 
+
     return (
         <View style={styles.container}>
             <FlatList
@@ -37,12 +42,15 @@ export default function CartScreen() {
                     <View style={styles.itemRow}>
                         <Text>{item.productName}</Text>
                         <Text>Qty: {item.quantity}</Text>
-                        <Text>${item.price}</Text>
+                        <Text>${item.unitPrice}</Text>
                     </View>
                 )}
+
+                onRefresh={refetch}
+                refreshing={isRefetching}
             />
             <View style={styles.footer}>
-                <Text style={styles.total}>Total: ${cart?.totalPrice || 0}</Text>
+                <Text style={styles.total}>Total: ${cart?.cartSubtotal || 0}</Text>
                 <Button
                     title="Proceed to Checkout"
                     onPress={() => checkoutMutation.mutate()}

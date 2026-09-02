@@ -9,21 +9,45 @@ export default function ProductDetailScreen({ route }) {
     const { user } = useContext(AuthContext);
     const queryClient = useQueryClient();
 
+    const [loading, setLoading] = useState(false);
+    
     const [rating, setRating] = useState('5');
     const [comment, setComment] = useState('');
-
+    
     const { data: product, isLoading } = useQuery({
         queryKey: ['product', name],
         queryFn: async () => (await getProductDetailApi(name)).data,
+        
     });
+    
+    const handleCart = async () => {
 
-    const cartMutation = useMutation({
-        mutationFn: () => addToCartApi({ customerId: user.id, productId: product.id, quantity: 1 }),
-        onSuccess: () => {
-            Alert.alert('Success', 'Added to cart');
-            queryClient.invalidateQueries(['cart', user?.id]);
-        },
-    });
+        try {
+            setLoading(true);
+            
+            console.log("id", user.id);
+            console.log("it gets to this place")
+            await addToCartApi({ customerId: user.id, productId: product.id, quantity: 1 });
+            
+            
+        } catch (error) {
+            Alert.alert("An error occured", error)  
+        }
+        finally{
+            setLoading(false);
+        }
+
+    }
+    // const cartMutation = useMutation({
+    //     mutationFn: () => addToCartApi({ customerId: user.id, productId: product.id, quantity: 1 }),
+    //     onSuccess: () => {
+    //         Alert.alert('Success', 'Added to cart');
+    //         queryClient.invalidateQueries(['cart', user?.id]);
+    //     },
+    //     onError: (err) => {
+    //         Alert.alert('Failure', 'Failed to add to cart', err);
+    //     }
+    // });
 
     const wishlistMutation = useMutation({
         mutationFn: () => addToWishlistApi({ customerId: user.id, productId: product.id }),
@@ -47,9 +71,10 @@ export default function ProductDetailScreen({ route }) {
             <Text style={styles.price}>${product?.price}</Text>
             <Text style={styles.description}>{product?.description}</Text>
 
-            <View style={styles.btnRow}>
-                <Button title="Add to Cart" onPress={() => cartMutation.mutate()} />
+            <View  style={styles.btnRow}>
+                {loading ? <ActivityIndicator size={10} color={'red'} animating={true} /> :  <Button title="Add to Cart" onPress={() => handleCart()} /> }
                 <Button title="Add to Wishlist" onPress={() => wishlistMutation.mutate()} color="#ff5722" />
+                
             </View>
 
             <View style={styles.reviewSection}>

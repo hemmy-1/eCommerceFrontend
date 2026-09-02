@@ -21,7 +21,7 @@ export default function OrderHistoryScreen() {
                 data={orders}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                    <View style={styles.card}>
+                    <View key={item.id} style={styles.card}>
                         <Text style={styles.orderId}>Order ID: {item.id}</Text>
                         <Text>Status: {item.status}</Text>
                         <Text>Total: ${item.totalAmount}</Text>

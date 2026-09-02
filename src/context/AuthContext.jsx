@@ -22,8 +22,9 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (credentials) => {
         const response = await loginApi(credentials);
-        const { token, refreshToken } = response.data;
-        await saveTokens(token, refreshToken);
+        console.log("response", response.data);
+        const { accessToken, refreshToken } = response.data;
+        await saveTokens(accessToken, refreshToken);
         console.log(credentials.email);
         console.log(credentials);
         await fetchUserProfile(credentials);
