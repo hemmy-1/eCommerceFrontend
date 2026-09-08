@@ -57,14 +57,14 @@ export default function CartScreen({ navigation }) {
     });
 
     // Checkout Mutation
-    const checkoutMutation = useMutation({
-        mutationFn: () => checkoutApi(user.id),
-        onSuccess: (res) => {
-            Alert.alert('Checkout Complete', `Order created successfully! ID: ${res.data?.id || res.data?.orderId}`);
-            queryClient.invalidateQueries(['cart', user?.id]);
-        },
-        onError: (err) => Alert.alert('Error', err.response?.data?.message || 'Checkout failed'),
-    });
+    // const checkoutMutation = useMutation({
+    //     mutationFn: () => checkoutApi(user.id),
+    //     onSuccess: (res) => {
+    //         Alert.alert('Checkout Complete', `Order created successfully! ID: ${res.data?.id || res.data?.orderId}`);
+    //         queryClient.invalidateQueries(['cart', user?.id]);
+    //     },
+    //     onError: (err) => Alert.alert('Error', err.response?.data?.message || 'Checkout failed'),
+    // });
 
     // Handlers
     const handleIncrement = (item) => {
@@ -103,6 +103,30 @@ export default function CartScreen({ navigation }) {
     if (isLoading && !isRefetching) {
         return <ActivityIndicator style={styles.center} size="large" color="#0a5d2c" />;
     }
+
+    const checkoutMutation = useMutation({
+        mutationFn: async () => {
+            const response = await axios.post(`https://your-api.com/checkout/${customerId}`);
+            return response.data; // Expecting backend to return order details (e.g. { orderId: "ORD-9921", ... })
+        },
+        onSuccess: (data) => {
+            // 2. Navigate to CheckoutScreen with the generated orderId from Spring Boot
+            navigation.navigate('Checkout', {
+                orderId: data.orderId,
+                orderDetails: data
+            });
+        },
+        onError: (error) => {
+            Alert.alert(
+                "Error",
+                error.response?.data?.message || "Failed to initialize order. Please try again."
+            );
+        }
+    });
+
+    const handleProceedToCheckout = () => {
+        checkoutMutation.mutate();
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -394,17 +418,10 @@ export default function CartScreen({ navigation }) {
                 <TouchableOpacity
                     style={[
                         styles.checkoutBtn,
-                        (checkoutMutation.isPending || cartItems.length === 0) && { opacity: 0.6 }
+                        checkoutMutation.isPending && { opacity: 0.7 }
                     ]}
-                    onPress={() => {
-                        // Navigate to your Checkout screen (replace 'Checkout' with your actual route name)
-                        navigation.navigate('Checkout', {
-                            cartItems,
-                            finalTotal,
-                            subtotal,
-                        });
-                    }}
-                    disabled={checkoutMutation.isPending || cartItems.length === 0}
+                    onPress={handleProceedToCheckout}
+                    disabled={checkoutMutation.isPending}
                 >
                     {checkoutMutation.isPending ? (
                         <ActivityIndicator color="#fff" size="small" />
