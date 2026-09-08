@@ -25,7 +25,7 @@ export default function WishlistScreen() {
         <View style={styles.container}>
             <FlatList
                 data={wishlist}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item.productId}
                 renderItem={({ item }) => (
                     <View style={styles.row}>
                         <Text style={styles.name}>{item.productName}</Text>
