@@ -10,9 +10,11 @@ import WishlistScreen from '../screens/wishlist/WishlistScreen';
 import CartScreen from '../screens/cart/CartScreen';
 import OrderHistoryScreen from '../screens/orders/OrderHistoryScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import CheckoutScreen from '../screens/cart/CheckoutScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
+const CartStack = createNativeStackNavigator(); // <-- Declared CartStack
 
 function HomeStackNavigator() {
     return (
@@ -23,8 +25,16 @@ function HomeStackNavigator() {
     );
 }
 
+function Carts() {
+    return (
+        <CartStack.Navigator>
+            <CartStack.Screen name="My Cart" component={CartScreen} options={{ title: 'Cart' }} />
+            <CartStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
+        </CartStack.Navigator>
+    );
+}
+
 export default function MainTabNavigator() {
-    // You can dynamically get this count from your cart state/context or React Query
     const cartItemCount = 3;
 
     return (
@@ -35,9 +45,7 @@ export default function MainTabNavigator() {
                 tabBarInactiveTintColor: '#555555',
                 tabBarStyle: styles.tabBar,
                 tabBarLabelStyle: styles.tabBarLabel,
-                tabBarIcon: ({ color, focused, size }) => {
-                    let iconName;
-
+                tabBarIcon: ({ color, focused }) => {
                     if (route.name === 'HomeTab') {
                         return <StorefrontIcon focused={focused} color={color} />;
                     } else if (route.name === 'Wishlist') {
@@ -60,8 +68,9 @@ export default function MainTabNavigator() {
             <Tab.Screen name="Wishlist" component={WishlistScreen} options={{ title: 'Wishlist' }} />
             <Tab.Screen
                 name="Cart"
-                component={CartScreen}
+                component={Carts}
                 options={{
+                    headerShown: false, // Set to false to avoid duplicate headers with CartStack
                     title: 'My Cart',
                     tabBarBadge: cartItemCount > 0 ? cartItemCount : null,
                     tabBarBadgeStyle: styles.badgeStyle,
@@ -73,7 +82,6 @@ export default function MainTabNavigator() {
     );
 }
 
-// Custom Icon Helpers for unique shapes (Storefront & Active Oval Profile)
 const StorefrontIcon = ({ color }) => (
     <MaterialCommunityIcons name="storefront-outline" size={22} color={color} />
 );

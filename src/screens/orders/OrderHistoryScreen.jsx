@@ -19,10 +19,10 @@ export default function OrderHistoryScreen() {
         <View style={styles.container}>
             <FlatList
                 data={orders}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item.orderId}
                 renderItem={({ item }) => (
                     <View key={item.id} style={styles.card}>
-                        <Text style={styles.orderId}>Order ID: {item.id}</Text>
+                        <Text style={styles.orderId}>Order ID: {item.orderId}</Text>
                         <Text>Status: {item.status}</Text>
                         <Text>Total: ${item.totalAmount}</Text>
                     </View>

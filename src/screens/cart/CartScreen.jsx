@@ -2,7 +2,6 @@ import React, { useContext, useState } from 'react';
 import {
     View,
     Text,
-    FlatList,
     TouchableOpacity,
     StyleSheet,
     ActivityIndicator,
@@ -16,7 +15,12 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
-import { getCartApi, checkoutApi, updateCartQuantityApi, removeFromCartApi } from '../../api/endpoints';
+import {
+    getCartApi,
+    checkoutApi,
+    updateCartQuantityApi,
+    removeFromCartApi,
+} from '../../api/endpoints';
 
 export default function CartScreen({ navigation }) {
     const { user } = useContext(AuthContext);
@@ -36,6 +40,22 @@ export default function CartScreen({ navigation }) {
         enabled: !!user?.id,
     });
 
+    // Quantity Update Mutation (+ / -)
+    const updateQtyMutation = useMutation({
+        mutationFn: ({ productId, quantity }) =>
+            updateCartQuantityApi({ customerId: user.id, productId, quantity }),
+        onSuccess: () => queryClient.invalidateQueries(['cart', user?.id]),
+        onError: (err) => Alert.alert('Error', err.response?.data?.message || 'Could not update quantity'),
+    });
+
+    // Remove Item Mutation
+    const removeItemMutation = useMutation({
+        mutationFn: (productId) =>
+            removeFromCartApi({ customerId: user.id, productId }),
+        onSuccess: () => queryClient.invalidateQueries(['cart', user?.id]),
+        onError: (err) => Alert.alert('Error', err.response?.data?.message || 'Could not remove item'),
+    });
+
     // Checkout Mutation
     const checkoutMutation = useMutation({
         mutationFn: () => checkoutApi(user.id),
@@ -46,13 +66,7 @@ export default function CartScreen({ navigation }) {
         onError: (err) => Alert.alert('Error', err.response?.data?.message || 'Checkout failed'),
     });
 
-    // Quantity Update Mutation
-    const updateQtyMutation = useMutation({
-        mutationFn: ({ productId, quantity }) => updateCartQuantityApi({ customerId: user.id, productId, quantity }),
-        onSuccess: () => queryClient.invalidateQueries(['cart', user?.id]),
-    });
-
-    // Item Quantity Adjusters
+    // Handlers
     const handleIncrement = (item) => {
         updateQtyMutation.mutate({ productId: item.productId, quantity: item.quantity + 1 });
     };
@@ -61,17 +75,24 @@ export default function CartScreen({ navigation }) {
         if (item.quantity > 1) {
             updateQtyMutation.mutate({ productId: item.productId, quantity: item.quantity - 1 });
         } else {
-            removeFromCartApi({ customerId: user.id, productId: item.productId }).then(() => {
-                queryClient.invalidateQueries(['cart', user?.id]);
-            });
+            // Remove when quantity reaches 0
+            removeItemMutation.mutate(item.productId);
         }
     };
 
-    // Calculate Calculations (fallback logic)
-    const itemsCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 6;
-    const subtotal = cart?.cartSubtotal || 37.99;
-    const toteBagDeposit = 1.50;
-    const salesTax = 2.85;
+    const handleRemove = (productId) => {
+        Alert.alert('Remove Item', 'Are you sure you want to remove this item from your cart?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Remove', style: 'destructive', onPress: () => removeItemMutation.mutate(productId) },
+        ]);
+    };
+
+    // Calculation fallbacks based on fetched cart items
+    const cartItems = cart?.items || [];
+    const itemsCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotal = cart?.cartSubtotal || cartItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+    const toteBagDeposit = cartItems.length > 0 ? 1.50 : 0.00;
+    const salesTax = subtotal * 0.075; // 7.5% estimated tax
     const finalTotal = (subtotal + toteBagDeposit + salesTax).toFixed(2);
 
     const recommendations = [
@@ -85,10 +106,7 @@ export default function CartScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* Same-Day Harvest Banner */}
                 <View style={styles.harvestBanner}>
                     <View style={styles.harvestLeft}>
@@ -113,11 +131,13 @@ export default function CartScreen({ navigation }) {
                 {/* My Cart Header */}
                 <View style={styles.headerRow}>
                     <Text style={styles.headerTitle}>
-                        My Cart <Text style={styles.headerSubtitle}>({cart?.items?.length || 3} unique • {itemsCount} items)</Text>
+                        My Cart <Text style={styles.headerSubtitle}>({cartItems.length} unique • {itemsCount} items)</Text>
                     </Text>
-                    <TouchableOpacity onPress={() => Alert.alert('Clear All', 'Are you sure you want to clear your cart?')}>
-                        <Text style={styles.clearAllText}>Clear all</Text>
-                    </TouchableOpacity>
+                    {cartItems.length > 0 && (
+                        <TouchableOpacity onPress={() => Alert.alert('Clear All', 'Clear entire cart?')}>
+                            <Text style={styles.clearAllText}>Clear all</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* Delivery Destination */}
@@ -138,64 +158,87 @@ export default function CartScreen({ navigation }) {
 
                 {/* Cart Items List */}
                 <View style={styles.itemsListContainer}>
-                    {(cart?.items && cart.items.length > 0 ? cart.items : [
-                        { productId: '1', productName: 'Artisan Stone-Ground Eba Flour', category: 'PANTRY STAPLES', weight: '2 kg pouch • Sun-dried cassava', unitPrice: 24.00, originalPrice: '$27.00', quantity: 3, tag: 'Bio', note: 'Direct from Oko-Aro Farmers Co-op • Batch: #EB-587', image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=200' },
-                        { productId: '2', productName: 'Fresh Organic Hass Avocado', category: 'FRESH PRODUCE', weight: 'Pack of 3 • Ripened on vine', unitPrice: 3.49, quantity: 1, tag: 'Ready', note: 'Peak Ripeness: Optimal today & tomorrow', image: 'https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?q=80&w=200' },
-                        { productId: '3', productName: 'Artisan Sourdough Loaf', category: 'ARTISAN BAKERY', weight: '24 oz • 36-hr cold fermented', unitPrice: 10.50, quantity: 2, tag: 'Warm', note: 'Baked fresh 6:00 AM', image: 'https://images.unsplash.com/photo-1585478259715-876acc5be8eb?q=80&w=200' }
-                    ]).map((item) => (
-                        <View key={item.productId} style={styles.itemCard}>
-                            <View style={styles.itemMainRow}>
-                                {/* Image & Tag */}
-                                <View style={styles.imageWrapper}>
-                                    <Image
-                                        source={{ uri: item.image || item.imageUrl || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=200' }}
-                                        style={styles.itemImage}
-                                    />
-                                    {item.tag && (
-                                        <View style={styles.itemTagBadge}>
-                                            <Text style={styles.itemTagText}>{item.tag}</Text>
-                                        </View>
-                                    )}
-                                </View>
+                    {cartItems.length === 0 ? (
+                        <View style={styles.emptyContainer}>
+                            <Feather name="shopping-bag" size={40} color="#ccc" />
+                            <Text style={styles.emptyText}>Your cart is currently empty</Text>
+                        </View>
+                    ) : (
+                        cartItems.map((item) => (
+                            <View key={item.productId} style={styles.itemCard}>
+                                <View style={styles.itemMainRow}>
+                                    {/* Image & Tag */}
+                                    <View style={styles.imageWrapper}>
+                                        <Image
+                                            source={{ uri: item.imageUrl || item.image || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=200' }}
+                                            style={styles.itemImage}
+                                        />
+                                        {item.tag && (
+                                            <View style={styles.itemTagBadge}>
+                                                <Text style={styles.itemTagText}>{item.tag}</Text>
+                                            </View>
+                                        )}
+                                    </View>
 
-                                {/* Info */}
-                                <View style={styles.itemInfo}>
-                                    <Text style={styles.itemCategory}>{(item.category || 'PANTRY STAPLES').toUpperCase()}</Text>
-                                    <Text style={styles.itemName} numberOfLines={1}>{item.productName}</Text>
-                                    <Text style={styles.itemWeight}>{item.weight || '1 unit'}</Text>
-
-                                    <View style={styles.priceStepperRow}>
-                                        <View style={styles.priceRow}>
-                                            <Text style={styles.itemPrice}>${parseFloat(item.unitPrice).toFixed(2)}</Text>
-                                            {item.originalPrice && <Text style={styles.strikePrice}>{item.originalPrice}</Text>}
-                                        </View>
-
-                                        {/* Stepper */}
-                                        <View style={styles.stepperContainer}>
-                                            <TouchableOpacity style={styles.stepperBtn} onPress={() => handleDecrement(item)}>
-                                                <Feather name="minus" size={14} color="#0a5d2c" />
+                                    {/* Info */}
+                                    <View style={styles.itemInfo}>
+                                        <View style={styles.itemHeaderRow}>
+                                            <Text style={styles.itemCategory}>{(item.category || 'PANTRY STAPLES').toUpperCase()}</Text>
+                                            {/* Dedicated Remove Button */}
+                                            <TouchableOpacity
+                                                onPress={() => handleRemove(item.productId)}
+                                                disabled={removeItemMutation.isPending}
+                                                style={styles.removeIconBtn}
+                                            >
+                                                <Feather name="trash-2" size={14} color="#dc2626" />
                                             </TouchableOpacity>
-                                            <Text style={styles.stepperQty}>{item.quantity}</Text>
-                                            <TouchableOpacity style={styles.stepperBtnActive} onPress={() => handleIncrement(item)}>
-                                                <Feather name="plus" size={14} color="#fff" />
-                                            </TouchableOpacity>
+                                        </View>
+
+                                        <Text style={styles.itemName} numberOfLines={1}>{item.productName}</Text>
+                                        <Text style={styles.itemWeight}>{item.weight || '1 unit'}</Text>
+
+                                        <View style={styles.priceStepperRow}>
+                                            <View style={styles.priceRow}>
+                                                <Text style={styles.itemPrice}>${parseFloat(item.unitPrice || 0).toFixed(2)}</Text>
+                                                {item.originalPrice && <Text style={styles.strikePrice}>{item.originalPrice}</Text>}
+                                            </View>
+
+                                            {/* Stepper with Live Actions */}
+                                            <View style={styles.stepperContainer}>
+                                                <TouchableOpacity
+                                                    style={styles.stepperBtn}
+                                                    onPress={() => handleDecrement(item)}
+                                                    disabled={updateQtyMutation.isPending || removeItemMutation.isPending}
+                                                >
+                                                    <Feather name="minus" size={14} color="#0a5d2c" />
+                                                </TouchableOpacity>
+
+                                                <Text style={styles.stepperQty}>{item.quantity}</Text>
+
+                                                <TouchableOpacity
+                                                    style={styles.stepperBtnActive}
+                                                    onPress={() => handleIncrement(item)}
+                                                    disabled={updateQtyMutation.isPending}
+                                                >
+                                                    <Feather name="plus" size={14} color="#fff" />
+                                                </TouchableOpacity>
+                                            </View>
                                         </View>
                                     </View>
                                 </View>
-                            </View>
 
-                            {/* Batch/Note Footer */}
-                            {item.note && (
-                                <View style={styles.itemNoteRow}>
-                                    <Ionicons name="leaf-outline" size={12} color="#0a5d2c" />
-                                    <Text style={styles.itemNoteText}>{item.note}</Text>
-                                </View>
-                            )}
-                        </View>
-                    ))}
+                                {item.note && (
+                                    <View style={styles.itemNoteRow}>
+                                        <Ionicons name="leaf-outline" size={12} color="#0a5d2c" />
+                                        <Text style={styles.itemNoteText}>{item.note}</Text>
+                                    </View>
+                                )}
+                            </View>
+                        ))
+                    )}
                 </View>
 
-                {/* Recommendations Section */}
+                {/* Recommendations */}
                 <View style={styles.recommendSection}>
                     <View style={styles.recommendHeader}>
                         <View>
@@ -228,7 +271,7 @@ export default function CartScreen({ navigation }) {
                     </ScrollView>
                 </View>
 
-                {/* Substitutions & Packaging Toggle Box */}
+                {/* Substitutions & Packaging */}
                 <View style={styles.substitutionsCard}>
                     <View style={styles.toggleRow}>
                         <View style={styles.toggleLeft}>
@@ -341,7 +384,7 @@ export default function CartScreen({ navigation }) {
                 </View>
             </ScrollView>
 
-            {/* Bottom Sticky Checkout Bar */}
+            {/* Sticky Checkout Bar */}
             <View style={styles.stickyFooter}>
                 <View>
                     <Text style={styles.toPayLabel}>TO PAY</Text>
@@ -349,9 +392,19 @@ export default function CartScreen({ navigation }) {
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.checkoutBtn, checkoutMutation.isPending && { opacity: 0.7 }]}
-                    onPress={() => checkoutMutation.mutate()}
-                    disabled={checkoutMutation.isPending}
+                    style={[
+                        styles.checkoutBtn,
+                        (checkoutMutation.isPending || cartItems.length === 0) && { opacity: 0.6 }
+                    ]}
+                    onPress={() => {
+                        // Navigate to your Checkout screen (replace 'Checkout' with your actual route name)
+                        navigation.navigate('Checkout', {
+                            cartItems,
+                            finalTotal,
+                            subtotal,
+                        });
+                    }}
+                    disabled={checkoutMutation.isPending || cartItems.length === 0}
                 >
                     {checkoutMutation.isPending ? (
                         <ActivityIndicator color="#fff" size="small" />
@@ -372,7 +425,6 @@ const styles = StyleSheet.create({
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     scrollContent: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 100 },
 
-    /* Same Day Harvest Banner */
     harvestBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#e2f0e8', borderRadius: 14, padding: 12, marginBottom: 14 },
     harvestLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     harvestIconCircle: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#0a5d2c', justifyContent: 'center', alignItems: 'center' },
@@ -383,13 +435,11 @@ const styles = StyleSheet.create({
     harvestTimeText: { fontSize: 10, color: '#555', marginTop: 1 },
     boldTimer: { fontWeight: 'bold', color: '#b45309' },
 
-    /* Header */
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1a231e' },
     headerSubtitle: { fontSize: 12, fontWeight: 'normal', color: '#666' },
     clearAllText: { fontSize: 12, color: '#666' },
 
-    /* Destination Card */
     destinationCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#eef6f1', borderRadius: 12, padding: 10, marginBottom: 16 },
     destinationLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     locationPinBg: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
@@ -398,8 +448,9 @@ const styles = StyleSheet.create({
     changeBtn: { backgroundColor: '#dcfce7', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
     changeBtnText: { fontSize: 10, fontWeight: 'bold', color: '#0a5d2c' },
 
-    /* Cart Item Card */
     itemsListContainer: { gap: 12, marginBottom: 16 },
+    emptyContainer: { backgroundColor: '#fff', padding: 30, borderRadius: 14, alignItems: 'center' },
+    emptyText: { marginTop: 10, fontSize: 13, color: '#888' },
     itemCard: { backgroundColor: '#fff', borderRadius: 14, padding: 12, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3 },
     itemMainRow: { flexDirection: 'row', gap: 10 },
     imageWrapper: { position: 'relative', width: 75, height: 75, borderRadius: 10, overflow: 'hidden' },
@@ -407,6 +458,8 @@ const styles = StyleSheet.create({
     itemTagBadge: { position: 'absolute', top: 4, left: 4, backgroundColor: '#ffffffd9', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
     itemTagText: { fontSize: 8, fontWeight: 'bold', color: '#0a5d2c' },
     itemInfo: { flex: 1 },
+    itemHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    removeIconBtn: { padding: 4 },
     itemCategory: { fontSize: 8, fontWeight: 'bold', color: '#0a5d2c', letterSpacing: 0.5 },
     itemName: { fontSize: 13, fontWeight: 'bold', color: '#1a231e', marginTop: 1 },
     itemWeight: { fontSize: 10, color: '#777', marginTop: 1 },
@@ -421,7 +474,6 @@ const styles = StyleSheet.create({
     itemNoteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
     itemNoteText: { fontSize: 9, color: '#666' },
 
-    /* Recommendations */
     recommendSection: { marginBottom: 16 },
     recommendHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
     recommendTitle: { fontSize: 13, fontWeight: 'bold', color: '#1a231e' },
@@ -439,7 +491,6 @@ const styles = StyleSheet.create({
     recPrice: { fontSize: 12, fontWeight: 'bold', color: '#1a231e' },
     recAddBtn: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#0a5d2c', justifyContent: 'center', alignItems: 'center' },
 
-    /* Substitutions Card */
     substitutionsCard: { backgroundColor: '#fff', borderRadius: 14, padding: 12, marginBottom: 14, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3 },
     toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
@@ -449,7 +500,6 @@ const styles = StyleSheet.create({
     myceliumRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
     myceliumText: { fontSize: 9, color: '#0a5d2c' },
 
-    /* Voucher Card */
     voucherCard: { backgroundColor: '#fff', borderRadius: 14, padding: 12, marginBottom: 14, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3 },
     voucherHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
     voucherTitle: { fontSize: 12, fontWeight: 'bold', color: '#1a231e' },
@@ -462,7 +512,6 @@ const styles = StyleSheet.create({
     couponSuccessRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
     couponSuccessText: { fontSize: 9, color: '#0a5d2c', fontWeight: '500' },
 
-    /* Order Summary */
     summaryCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 14, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3 },
     summaryTitle: { fontSize: 13, fontWeight: 'bold', color: '#1a231e', marginBottom: 10 },
     summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
@@ -481,7 +530,6 @@ const styles = StyleSheet.create({
     impactIconBg: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
     impactText: { flex: 1, fontSize: 9, color: '#0a5d2c', lineHeight: 12 },
 
-    /* Sticky Bottom Footer */
     stickyFooter: {
         position: 'absolute',
         bottom: 0,
@@ -489,7 +537,7 @@ const styles = StyleSheet.create({
         right: 0,
         backgroundColor: '#fff',
         flexDirection: 'row',
-        justify: 'space-between',
+        justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
         paddingVertical: 12,

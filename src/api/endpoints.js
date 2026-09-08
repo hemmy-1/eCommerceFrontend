@@ -36,3 +36,17 @@ export const addToWishlistApi = ({ customerId, productId }) =>
     client.post(`/api/wishlist/${customerId}`, { productId });
 export const removeFromWishlistApi = ({ customerId, productId }) =>
     client.delete(`/api/wishlist/${customerId}/products/${productId}`);
+
+// Payment API Endpoints
+
+
+export const initializePaymentApi = (orderId) => client.post(`/api/payments/initialize/${orderId}`);
+
+export const simulatePaymentWebhookApi = (reference) =>
+    client.post('/api/payments/webhook', {
+        event: 'charge.success',
+        data: {
+            reference: reference,
+            status: 'success',
+        },
+    });
