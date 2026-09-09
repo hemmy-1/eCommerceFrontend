@@ -30,53 +30,86 @@ export default function CartScreen({ navigation }) {
     const [couponCode, setCouponCode] = useState('HARVESTSPRING');
     const [isCouponApplied, setIsCouponApplied] = useState(true);
 
-    // Fetch Cart Data
-    const { data: cart, isLoading, refetch, isRefetching } = useQuery({
+    const { data: cart, isLoading, isRefetching } = useQuery({
         queryKey: ['cart', user?.id],
         queryFn: async () => {
             const res = await getCartApi(user.id);
-            return res.data;
+            return res.data ?? { items: [], cartSubtotal: 0 };
         },
         enabled: !!user?.id,
     });
 
-    // Quantity Update Mutation (+ / -)
     const updateQtyMutation = useMutation({
         mutationFn: ({ productId, quantity }) =>
             updateCartQuantityApi({ customerId: user.id, productId, quantity }),
-        onSuccess: () => queryClient.invalidateQueries(['cart', user?.id]),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+        },
         onError: (err) => Alert.alert('Error', err.response?.data?.message || 'Could not update quantity'),
     });
 
-    // Remove Item Mutation
     const removeItemMutation = useMutation({
         mutationFn: (productId) =>
             removeFromCartApi({ customerId: user.id, productId }),
-        onSuccess: () => queryClient.invalidateQueries(['cart', user?.id]),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+        },
         onError: (err) => Alert.alert('Error', err.response?.data?.message || 'Could not remove item'),
     });
 
-    // Checkout Mutation
+    const cartItems = Array.isArray(cart?.items) ? cart.items : [];
+    const itemsCount = cartItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const subtotal = Number(cart?.cartSubtotal ?? cartItems.reduce((sum, item) => sum + (Number(item.unitPrice || 0) * (Number(item.quantity) || 1)), 0));
+    const toteBagDeposit = cartItems.length > 0 ? 1.5 : 0;
+    const salesTax = subtotal * 0.075;
+    const finalTotal = Number((subtotal + toteBagDeposit + salesTax).toFixed(2));
+
+    const normalizedOrderData = {
+        items: cartItems.map((item) => ({
+            id: item.productId || item.id,
+            name: item.productName || item.name,
+            title: item.productName || item.name,
+            quantity: Number(item.quantity) || 1,
+            price: Number(item.unitPrice || 0),
+            image: item.imageUrl || item.image || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=200',
+            variant: item.weight || item.variant || '1 unit',
+        })),
+        subtotal,
+        shippingFee: 0,
+        tax: salesTax,
+        toteDeposit: toteBagDeposit,
+        totalAmount: finalTotal,
+    };
+
     const checkoutMutation = useMutation({
         mutationFn: () => checkoutApi(user.id),
         onSuccess: (res) => {
-            Alert.alert('Checkout Complete', `Order created successfully! ID: ${res.data?.id || res.data?.orderId}`);
-            queryClient.invalidateQueries(['cart', user?.id]);
+            const order = res?.data ?? {};
+            const orderId = order.orderId || order.id || order.data?.orderId || order.data?.id;
+            queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+
+            navigation.navigate('Checkout', {
+                orderId,
+                orderData: {
+                    ...normalizedOrderData,
+                    orderId,
+                },
+            });
         },
-        onError: (err) => Alert.alert('Error', err.response?.data?.message || 'Checkout failed'),
+        onError: (err) => {
+            Alert.alert('Checkout Failed', err.response?.data?.message || err.message || 'Unable to process checkout');
+        },
     });
 
-    // Handlers
     const handleIncrement = (item) => {
-        updateQtyMutation.mutate({ productId: item.productId, quantity: item.quantity + 1 });
+        updateQtyMutation.mutate({ productId: item.productId, quantity: (Number(item.quantity) || 0) + 1 });
     };
 
     const handleDecrement = (item) => {
-        if (item.quantity > 1) {
-            updateQtyMutation.mutate({ productId: item.productId, quantity: item.quantity - 1 });
+        if ((Number(item.quantity) || 0) > 1) {
+            updateQtyMutation.mutate({ productId: item.productId, quantity: (Number(item.quantity) || 0) - 1 });
         } else {
-            // Remove when quantity reaches 0
-            removeItemMutation.mutate(item.productId);
+            handleRemove(item.productId);
         }
     };
 
@@ -87,13 +120,18 @@ export default function CartScreen({ navigation }) {
         ]);
     };
 
-    // Calculation fallbacks based on fetched cart items
-    const cartItems = cart?.items || [];
-    const itemsCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-    const subtotal = cart?.cartSubtotal || cartItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-    const toteBagDeposit = cartItems.length > 0 ? 1.50 : 0.00;
-    const salesTax = subtotal * 0.075; // 7.5% estimated tax
-    const finalTotal = (subtotal + toteBagDeposit + salesTax).toFixed(2);
+    const handleClearAll = () => {
+        Alert.alert('Clear Cart', 'Are you sure you want to clear all items in your cart?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Clear All',
+                style: 'destructive',
+                onPress: () => {
+                    cartItems.forEach((item) => removeItemMutation.mutate(item.productId));
+                },
+            },
+        ]);
+    };
 
     const recommendations = [
         { id: 'rec1', name: 'Cold-Pressed Sicilian Olive Oil', price: '$12.40', tag: 'Top Match', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?q=80&w=200' },
@@ -111,7 +149,7 @@ export default function CartScreen({ navigation }) {
                 <View style={styles.harvestBanner}>
                     <View style={styles.harvestLeft}>
                         <View style={styles.harvestIconCircle}>
-                            <Ionicons name="leaf" size={14} color="#0a5d2c" />
+                            <Ionicons name="leaf" size={14} color="#fff" />
                         </View>
                         <View>
                             <View style={styles.harvestTitleRow}>
@@ -128,13 +166,13 @@ export default function CartScreen({ navigation }) {
                     <Feather name="truck" size={16} color="#0a5d2c" />
                 </View>
 
-                {/* My Cart Header */}
+                {/* Header */}
                 <View style={styles.headerRow}>
                     <Text style={styles.headerTitle}>
                         My Cart <Text style={styles.headerSubtitle}>({cartItems.length} unique • {itemsCount} items)</Text>
                     </Text>
                     {cartItems.length > 0 && (
-                        <TouchableOpacity onPress={() => Alert.alert('Clear All', 'Clear entire cart?')}>
+                        <TouchableOpacity onPress={handleClearAll}>
                             <Text style={styles.clearAllText}>Clear all</Text>
                         </TouchableOpacity>
                     )}
@@ -167,7 +205,6 @@ export default function CartScreen({ navigation }) {
                         cartItems.map((item) => (
                             <View key={item.productId} style={styles.itemCard}>
                                 <View style={styles.itemMainRow}>
-                                    {/* Image & Tag */}
                                     <View style={styles.imageWrapper}>
                                         <Image
                                             source={{ uri: item.imageUrl || item.image || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=200' }}
@@ -180,11 +217,9 @@ export default function CartScreen({ navigation }) {
                                         )}
                                     </View>
 
-                                    {/* Info */}
                                     <View style={styles.itemInfo}>
                                         <View style={styles.itemHeaderRow}>
                                             <Text style={styles.itemCategory}>{(item.category || 'PANTRY STAPLES').toUpperCase()}</Text>
-                                            {/* Dedicated Remove Button */}
                                             <TouchableOpacity
                                                 onPress={() => handleRemove(item.productId)}
                                                 disabled={removeItemMutation.isPending}
@@ -199,11 +234,10 @@ export default function CartScreen({ navigation }) {
 
                                         <View style={styles.priceStepperRow}>
                                             <View style={styles.priceRow}>
-                                                <Text style={styles.itemPrice}>${parseFloat(item.unitPrice || 0).toFixed(2)}</Text>
+                                                <Text style={styles.itemPrice}>${Number(item.unitPrice || 0).toFixed(2)}</Text>
                                                 {item.originalPrice && <Text style={styles.strikePrice}>{item.originalPrice}</Text>}
                                             </View>
 
-                                            {/* Stepper with Live Actions */}
                                             <View style={styles.stepperContainer}>
                                                 <TouchableOpacity
                                                     style={styles.stepperBtn}
@@ -396,14 +430,7 @@ export default function CartScreen({ navigation }) {
                         styles.checkoutBtn,
                         (checkoutMutation.isPending || cartItems.length === 0) && { opacity: 0.6 }
                     ]}
-                    onPress={() => {
-                        // Navigate to your Checkout screen (replace 'Checkout' with your actual route name)
-                        navigation.navigate('Checkout', {
-                            cartItems,
-                            finalTotal,
-                            subtotal,
-                        });
-                    }}
+                    onPress={() => checkoutMutation.mutate()}
                     disabled={checkoutMutation.isPending || cartItems.length === 0}
                 >
                     {checkoutMutation.isPending ? (
@@ -438,7 +465,7 @@ const styles = StyleSheet.create({
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1a231e' },
     headerSubtitle: { fontSize: 12, fontWeight: 'normal', color: '#666' },
-    clearAllText: { fontSize: 12, color: '#666' },
+    clearAllText: { fontSize: 12, color: '#dc2626', fontWeight: '600' },
 
     destinationCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#eef6f1', borderRadius: 12, padding: 10, marginBottom: 16 },
     destinationLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -549,8 +576,15 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 4,
     },
-    toPayLabel: { fontSize: 8, color: '#888', fontWeight: 'bold', letterSpacing: 0.5 },
-    toPayAmount: { fontSize: 18, fontWeight: 'bold', color: '#0a5d2c' },
-    checkoutBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a5d2c', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24 },
+    toPayLabel: { fontSize: 9, fontWeight: 'bold', color: '#777', letterSpacing: 0.5 },
+    toPayAmount: { fontSize: 18, fontWeight: 'bold', color: '#1a231e' },
+    checkoutBtn: {
+        backgroundColor: '#0a5d2c',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
     checkoutBtnText: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
 });
