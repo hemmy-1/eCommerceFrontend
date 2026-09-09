@@ -9,12 +9,14 @@ import ProductDetailScreen from '../screens/products/ProductDetailScreen';
 import WishlistScreen from '../screens/wishlist/WishlistScreen';
 import CartScreen from '../screens/cart/CartScreen';
 import OrderHistoryScreen from '../screens/orders/OrderHistoryScreen';
+import OrderDetials from '../screens/orders/OrderDetials';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import CheckoutScreen from '../screens/cart/CheckoutScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
 const CartStack = createNativeStackNavigator(); // <-- Declared CartStack
+const OrdersStack = createNativeStackNavigator();
 
 function HomeStackNavigator() {
     return (
@@ -31,6 +33,15 @@ function Carts() {
             <CartStack.Screen name="My Cart" component={CartScreen} options={{ title: 'Cart' }} />
             <CartStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
         </CartStack.Navigator>
+    );
+}
+
+function Orders() {
+    return (
+        <OrdersStack.Navigator>
+            <OrdersStack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ headerShown: false }} />
+            <OrdersStack.Screen name="OrderDetails" component={OrderDetials} options={{ headerShown: false }} />
+        </OrdersStack.Navigator>
     );
 }
 
@@ -76,7 +87,7 @@ export default function MainTabNavigator() {
                     tabBarBadgeStyle: styles.badgeStyle,
                 }}
             />
-            <Tab.Screen name="Orders" component={OrderHistoryScreen} options={{ title: 'My Orders' }} />
+            <Tab.Screen name="Orders" component={Orders} options={{ title: 'My Orders', headerShown: false }} />
             <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
         </Tab.Navigator>
     );

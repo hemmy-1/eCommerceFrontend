@@ -29,6 +29,7 @@ export const removeFromCartApi = ({ customerId, productId }) =>
 // Order Endpoints
 export const checkoutApi = (customerId) => client.post(`/api/orders/checkout/${customerId}`);
 export const getCustomerOrdersApi = (customerId) => client.get(`/api/orders/customer/${customerId}`);
+export const getOrderDetailsApi = (orderId) => client.get(`/api/orders/${orderId}`);
 
 // Wishlist Endpoints
 export const getWishlistApi = (customerId) => client.get(`/api/wishlist/${customerId}`);
