@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
     Image,
     Alert,
+    RefreshControl,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather, Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ export default function WishlistScreen({ navigation }) {
     const queryClient = useQueryClient();
 
     // Fetch Wishlist Data
-    const { data: wishlist, isLoading } = useQuery({
+    const { data: wishlist, isLoading, isRefetching, refetch } = useQuery({
         queryKey: ['wishlist', user?.id],
         queryFn: async () => (await getWishlistApi(user.id)).data,
         enabled: !!user?.id,
@@ -206,6 +207,14 @@ export default function WishlistScreen({ navigation }) {
                 ListFooterComponent={renderFooter}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefetching}
+                        onRefresh={refetch}
+                        colors={['#0a5d2c']}
+                        tintColor="#0a5d2c"
+                    />
+                }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Feather name="heart" size={48} color="#ccc" />

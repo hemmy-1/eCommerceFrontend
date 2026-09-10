@@ -3,6 +3,7 @@ import {
     ActivityIndicator,
     FlatList,
     Pressable,
+    RefreshControl,
     StyleSheet,
     Text,
     TextInput,
@@ -48,7 +49,7 @@ export default function OrderHistoryScreen({ navigation }) {
     const [activeFilter, setActiveFilter] = useState('all');
     const [search, setSearch] = useState('');
 
-    const { data: orders, isLoading } = useQuery({
+    const { data: orders, isLoading, isRefetching, refetch } = useQuery({
         queryKey: ['orders', user?.id],
         queryFn: async () => {
             const response = await getCustomerOrdersApi(user.id);
@@ -153,6 +154,14 @@ export default function OrderHistoryScreen({ navigation }) {
                         <Text style={styles.emptyTitle}>No orders found</Text>
                         <Text style={styles.emptyText}>Try a different search or status filter.</Text>
                     </View>
+                }
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefetching}
+                        onRefresh={refetch}
+                        colors={[COLORS.green]}
+                        tintColor={COLORS.green}
+                    />
                 }
                 renderItem={({ item }) => (
                     <OrderCard order={item} navigation={navigation} />

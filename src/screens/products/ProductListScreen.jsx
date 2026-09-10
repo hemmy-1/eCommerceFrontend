@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
     View,
     Text,
@@ -9,18 +9,26 @@ import {
     Image,
     TextInput,
     ScrollView,
+    RefreshControl,
+    Alert,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { getActiveProductsApi } from '../../api/endpoints';
+import { addToCartApi, getActiveProductsApi } from '../../api/endpoints';
+import { AuthContext } from '../../context/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AntDesign from '@expo/vector-icons/AntDesign';
 
 export default function ProductListScreen({ navigation }) {
+    const { user } = useContext(AuthContext);
+    const queryClient = useQueryClient();
     const [selectedCategory, setSelectedCategory] = useState('All Foods');
     const [searchQuery, setSearchQuery] = useState('');
+    const [addingProductId, setAddingProductId] = useState(null);
 
     const categories = ['All Foods', 'Fresh Fruits', 'Organic Veggies', 'Pantry'];
 
-    const { data: products, isLoading, error } = useQuery({
+    const { data: products, isLoading, isRefetching, error, refetch } = useQuery({
         queryKey: ['activeProducts'],
         queryFn: async () => {
             const res = await getActiveProductsApi();
@@ -28,9 +36,27 @@ export default function ProductListScreen({ navigation }) {
         },
     });
 
-    const handleAddToCart = (item) => {
-        // Integrate your cart context/API call here
-        console.log('Added to cart:', item);
+    const handleAddToCart = async (item) => {
+        if (!user?.id) {
+            Alert.alert('Sign in required', 'Please sign in before adding items to your cart.');
+            return;
+        }
+
+        if (!item?.id) {
+            Alert.alert('Error', 'This product could not be added to your cart.');
+            return;
+        }
+
+        try {
+            setAddingProductId(item.id);
+            await addToCartApi({ customerId: user.id, productId: item.id, quantity: 1 });
+            await queryClient.invalidateQueries({ queryKey: ['cart', user.id] });
+            Alert.alert('Success', `${item.name || 'Item'} added to your cart`);
+        } catch (error) {
+            Alert.alert('Error', error.response?.data?.message || error.message || 'Failed to add item to cart');
+        } finally {
+            setAddingProductId(null);
+        }
     };
 
     const renderHeader = () => (
@@ -190,8 +216,13 @@ export default function ProductListScreen({ navigation }) {
                         <TouchableOpacity
                             style={styles.addToCartBtn}
                             onPress={() => handleAddToCart(item)}
+                            disabled={addingProductId === item.id}
                         >
-                            <Feather name="arrow-down-right" size={20} color="#fff" />
+                            {addingProductId === item.id ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <AntDesign name="plus" size={24} color="white" />
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -203,7 +234,7 @@ export default function ProductListScreen({ navigation }) {
     if (error) return <Text style={styles.center}>Error loading products: {error.message}</Text>;
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <FlatList
                 data={products}
                 keyExtractor={(item) => item.id.toString()}
@@ -211,8 +242,16 @@ export default function ProductListScreen({ navigation }) {
                 ListHeaderComponent={renderHeader}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefetching}
+                        onRefresh={refetch}
+                        colors={['#0a5d2c']}
+                        tintColor="#0a5d2c"
+                    />
+                }
             />
-        </View>
+        </SafeAreaView>
     );
 }
 

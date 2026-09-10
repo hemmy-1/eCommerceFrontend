@@ -1,5 +1,11 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { saveTokens, clearTokens, getAccessToken } from '../storage/secureStore';
+import {
+    saveTokens,
+    clearTokens,
+    getAccessToken,
+    saveUserEmail,
+    getUserEmail,
+} from '../storage/secureStore';
 import { getCurrentUserApi, loginApi } from '../api/endpoints';
 
 export const AuthContext = createContext();
@@ -12,9 +18,11 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await getCurrentUserApi(email);
             setUser(response.data); // Stores customer id, nickName, email, role
+            return true;
         } catch (error) {
-            console.error('Failed to fetch user context', error);
+            // A stale token should quietly return the user to the login screen.
             await logout();
+            return false;
         } finally {
             setLoading(false);
         }
@@ -25,8 +33,7 @@ export const AuthProvider = ({ children }) => {
         console.log("response", response.data);
         const { accessToken, refreshToken } = response.data;
         await saveTokens(accessToken, refreshToken);
-        console.log(credentials.email);
-        console.log(credentials);
+        await saveUserEmail(credentials.email);
         await fetchUserProfile(credentials);
     };
 
@@ -38,9 +45,12 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const checkAuthStatus = async () => {
             const token = await getAccessToken();
-            if (token) {
-                await fetchUserProfile();
+            const email = await getUserEmail();
+
+            if (token && email) {
+                await fetchUserProfile({ email });
             } else {
+                await clearTokens();
                 setLoading(false);
             }
         };
