@@ -7,13 +7,14 @@ import {
     StyleSheet,
     ActivityIndicator,
     Image,
-    SafeAreaView,
     Alert,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { getWishlistApi, removeFromWishlistApi, addToCartApi } from '../../api/endpoints';
 import { AuthContext } from '../../context/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 export default function WishlistScreen({ navigation }) {
     const { user } = useContext(AuthContext);

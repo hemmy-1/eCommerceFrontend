@@ -8,12 +8,12 @@ import {
     ScrollView,
     Image,
     TouchableOpacity,
-    SafeAreaView,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { getProductDetailApi, addToCartApi, addToWishlistApi } from '../../api/endpoints';
 import { AuthContext } from '../../context/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProductDetailScreen({ route, navigation }) {
     const { name } = route.params;

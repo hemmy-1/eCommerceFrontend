@@ -6,11 +6,11 @@ import {
     TouchableOpacity,
     ScrollView,
     Image,
-    SafeAreaView,
 } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
 import { logoutApi } from '../../api/endpoints';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
     const { user, logout } = useContext(AuthContext);

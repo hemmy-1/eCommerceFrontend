@@ -20,7 +20,7 @@ const OrdersStack = createNativeStackNavigator();
 
 function HomeStackNavigator() {
     return (
-        <HomeStack.Navigator>
+        <HomeStack.Navigator screenOptions={{ headerShown: false }}>
             <HomeStack.Screen name="ProductList" component={ProductListScreen} options={{ title: 'Products' }} />
             <HomeStack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Product Details' }} />
         </HomeStack.Navigator>
@@ -29,7 +29,7 @@ function HomeStackNavigator() {
 
 function Carts() {
     return (
-        <CartStack.Navigator>
+        <CartStack.Navigator screenOptions={{ headerShown: false }}>
             <CartStack.Screen name="My Cart" component={CartScreen} options={{ title: 'Cart' }} />
             <CartStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
         </CartStack.Navigator>
@@ -38,7 +38,7 @@ function Carts() {
 
 function Orders() {
     return (
-        <OrdersStack.Navigator>
+        <OrdersStack.Navigator screenOptions={{ headerShown:false}}>
             <OrdersStack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ headerShown: false }} />
             <OrdersStack.Screen name="OrderDetails" component={OrderDetials} options={{ headerShown: false }} />
         </OrdersStack.Navigator>
@@ -51,7 +51,7 @@ export default function MainTabNavigator() {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
-                headerShown: true,
+                headerShown: false,
                 tabBarActiveTintColor: '#0a5d2c',
                 tabBarInactiveTintColor: '#555555',
                 tabBarStyle: styles.tabBar,

@@ -4,7 +4,6 @@ import {
     Text,
     StyleSheet,
     TouchableOpacity,
-    SafeAreaView,
     ScrollView,
     ActivityIndicator,
     Image,
@@ -14,6 +13,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import WebView from 'react-native-webview';
 import { initializePaymentApi, simulatePaymentWebhookApi } from '../../api/endpoints';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const toNumber = (value, fallback = 0) => {
     const numeric = Number(value);

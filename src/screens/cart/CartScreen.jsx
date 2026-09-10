@@ -6,8 +6,8 @@ import {
     StyleSheet,
     ActivityIndicator,
     Image,
-    SafeAreaView,
     ScrollView,
+    RefreshControl,
     Switch,
     TextInput,
     Alert,
@@ -21,6 +21,7 @@ import {
     updateCartQuantityApi,
     removeFromCartApi,
 } from '../../api/endpoints';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CartScreen({ navigation }) {
     const { user } = useContext(AuthContext);
@@ -30,7 +31,7 @@ export default function CartScreen({ navigation }) {
     const [couponCode, setCouponCode] = useState('HARVESTSPRING');
     const [isCouponApplied, setIsCouponApplied] = useState(true);
 
-    const { data: cart, isLoading, isRefetching } = useQuery({
+    const { data: cart, isLoading, isRefetching, refetch } = useQuery({
         queryKey: ['cart', user?.id],
         queryFn: async () => {
             const res = await getCartApi(user.id);
@@ -144,7 +145,18 @@ export default function CartScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefetching}
+                        onRefresh={refetch}
+                        colors={['#0a5d2c']}
+                        tintColor="#0a5d2c"
+                    />
+                }
+            >
                 {/* Same-Day Harvest Banner */}
                 <View style={styles.harvestBanner}>
                     <View style={styles.harvestLeft}>
